@@ -339,7 +339,8 @@ func doPost(cCtx *cli.Context) error {
 		}
 	}
 
-	for _, entry := range extractLinksBytes(text) {
+	extractedLinkBytes := extractLinksBytes(text)
+	for _, entry := range extractedLinkBytes {
 		post.Facets = append(post.Facets, &bsky.RichtextFacet{
 			Features: []*bsky.RichtextFacet_Features_Elem{
 				{
@@ -359,6 +360,19 @@ func doPost(cCtx *cli.Context) error {
 		if post.Embed.EmbedExternal == nil {
 			addLink(xrpcc, post, entry.text)
 		}
+	}
+
+	// NOTE(jinuk, 2024-09-22): if there is only a single URL, then let's omit it.
+	if len(extractedLinkBytes) == 1 {
+		// remove from the text.
+		start := extractedLinkBytes[0].start
+		end := extractedLinkBytes[0].end
+		textBytes := []byte(text)
+		text = string(append(textBytes[:start], textBytes[end:]...))
+		post.Text = text
+
+		// remove the last element from Facet, as it's no longer there.
+		post.Facets = post.Facets[:len(post.Facets)-1]
 	}
 
 	for _, entry := range extractMentionsBytes(text) {
